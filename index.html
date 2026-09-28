@@ -17,7 +17,6 @@
     }
 
     * { box-sizing: border-box; }
-
     html, body {
       margin: 0;
       width: 100%;
@@ -116,9 +115,7 @@
       backdrop-filter: blur(8px);
     }
 
-    .panel.hidden {
-      display: none !important;
-    }
+    .panel.hidden { display: none !important; }
 
     .card {
       width: min(800px, 92vw);
@@ -316,7 +313,6 @@
   <script type="module">
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
-    // ========== SCENE SETUP ==========
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0e1a);
     scene.fog = new THREE.Fog(0x0a0e1a, 20, 120);
@@ -331,7 +327,6 @@
     renderer.shadowMap.type = THREE.PCFShadowShadowMap;
     document.body.appendChild(renderer.domElement);
 
-    // ========== LIGHTING ==========
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
 
@@ -347,34 +342,28 @@
     directionalLight.shadow.camera.bottom = -50;
     scene.add(directionalLight);
 
-    // ========== STARFIELD ==========
     const starsGeo = new THREE.BufferGeometry();
     const starPositions = [];
-    for (let i = 0; i < 2000; i++) {
-      starPositions.push(
-        (Math.random() - 0.5) * 200,
-        (Math.random() - 0.5) * 200,
-        -Math.random() * 200
-      );
+    for (let i = 0; i < 2200; i++) {
+      starPositions.push((Math.random() - 0.5) * 200, (Math.random() - 0.5) * 200, -Math.random() * 220);
     }
     starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
     const starField = new THREE.Points(
       starsGeo,
-      new THREE.PointsMaterial({ color: 0xd4f0ff, size: 0.15, sizeAttenuation: true })
+      new THREE.PointsMaterial({ color: 0xd4f0ff, size: 0.14, transparent: true, opacity: 0.9 })
     );
     scene.add(starField);
 
-    // ========== NEBULA BACKGROUND ==========
     const nebulaCanvas = document.createElement('canvas');
     nebulaCanvas.width = 512;
     nebulaCanvas.height = 512;
     const nCtx = nebulaCanvas.getContext('2d');
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 60; i++) {
       const x = Math.random() * 512;
       const y = Math.random() * 512;
-      const radius = 80 + Math.random() * 120;
+      const radius = 80 + Math.random() * 140;
       const gradient = nCtx.createRadialGradient(x, y, 0, x, y, radius);
-      const colors = ['rgba(123, 220, 255, 0.3)', 'rgba(255, 156, 67, 0.2)', 'rgba(157, 123, 255, 0.15)'];
+      const colors = ['rgba(123, 220, 255, 0.28)', 'rgba(255, 156, 67, 0.18)', 'rgba(157, 123, 255, 0.14)'];
       const color = colors[Math.floor(Math.random() * colors.length)];
       gradient.addColorStop(0, color);
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
@@ -388,54 +377,59 @@
     );
     scene.add(nebulaMesh);
 
-    // ========== INPUT HANDLING ==========
-    const keyState = {};
-    window.addEventListener('keydown', (e) => {
-      keyState[e.code] = true;
-      if (e.code === 'Space') e.preventDefault();
-    });
-    window.addEventListener('keyup', (e) => {
-      keyState[e.code] = false;
-    });
+    const planets = [];
+    function createPlanet(radius, color, ring = false) {
+      const planet = new THREE.Mesh(
+        new THREE.SphereGeometry(radius, 32, 32),
+        new THREE.MeshStandardMaterial({
+          color,
+          roughness: 0.9,
+          metalness: 0.1,
+          emissive: color,
+          emissiveIntensity: 0.08
+        })
+      );
+      planet.position.set(randomRange(-80, 80), randomRange(-30, 30), -120 - Math.random() * 80);
+      planet.rotation.z = Math.random() * Math.PI;
+      planet.receiveShadow = true;
+      planet.castShadow = true;
+      scene.add(planet);
 
-    // ========== CHARACTER DEFINITIONS ==========
-    const charDefs = {
-      vanguard: {
-        name: 'Vanguard',
-        color: 0x7bdcff,
-        moveSpeed: 6.5,
-        fireRate: 0.25,
-        damage: 14,
-        health: 110,
-        shield: 42,
-        shieldMax: 42,
-        ability: 'Shield Burst'
-      },
-      wisp: {
-        name: 'Wisp',
-        color: 0xff9ef7,
-        moveSpeed: 9.5,
-        fireRate: 0.16,
-        damage: 10,
-        health: 68,
-        shield: 10,
-        shieldMax: 10,
-        ability: 'Blink Dash'
-      },
-      ranger: {
-        name: 'Ranger',
-        color: 0x8df8c0,
-        moveSpeed: 7.5,
-        fireRate: 0.14,
-        damage: 18,
-        health: 92,
-        shield: 20,
-        shieldMax: 20,
-        ability: 'Burst Fire'
+      if (ring) {
+        const ringTex = new THREE.MeshBasicMaterial({
+          color: 0xe2d3a1,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.6
+        });
+        const ring = new THREE.Mesh(new THREE.RingGeometry(radius * 1.5, radius * 2.6, 48), ringTex);
+        ring.rotation.x = Math.PI / 2.8;
+        ring.position.copy(planet.position);
+        scene.add(ring);
+        planets.push({ planet, ring, drift: randomRange(0.4, 1.2) });
+      } else {
+        planets.push({ planet, ring: null, drift: randomRange(0.4, 1.2) });
       }
+    }
+
+    function populatePlanets() {
+      const palette = [0x9ec7ff, 0xe9c46a, 0x82d1a8, 0x7ac6ff, 0xc9b0ff, 0xffa573];
+      for (let i = 0; i < 7; i++) {
+        createPlanet(4 + Math.random() * 6, palette[i % palette.length], i % 2 === 0);
+      }
+    }
+    populatePlanets();
+
+    const keyState = {};
+    window.addEventListener('keydown', (e) => { keyState[e.code] = true; if (e.code === 'Space') e.preventDefault(); });
+    window.addEventListener('keyup', (e) => { keyState[e.code] = false; });
+
+    const charDefs = {
+      vanguard: { name: 'Vanguard', color: 0x7bdcff, moveSpeed: 6.5, fireRate: 0.25, damage: 14, health: 110, shield: 42, shieldMax: 42, ability: 'Shield Burst' },
+      wisp: { name: 'Wisp', color: 0xff9ef7, moveSpeed: 9.5, fireRate: 0.16, damage: 10, health: 68, shield: 10, shieldMax: 10, ability: 'Blink Dash' },
+      ranger: { name: 'Ranger', color: 0x8df8c0, moveSpeed: 7.5, fireRate: 0.14, damage: 18, health: 92, shield: 20, shieldMax: 20, ability: 'Burst Fire' }
     };
 
-    // ========== UI ELEMENTS ==========
     const ui = {
       score: document.getElementById('scoreBox'),
       wave: document.getElementById('waveBox'),
@@ -451,7 +445,6 @@
       radarCanvas: document.getElementById('radarCanvas')
     };
 
-    // ========== GAME STATE ==========
     const state = {
       running: false,
       paused: false,
@@ -461,7 +454,11 @@
       combo: 1,
       playerSelected: 'vanguard',
       highScore: Number(localStorage.getItem('starDriftHighScore') || 0),
-      nextUpgradeIn: 12
+      nextUpgradeIn: 12,
+      spawnTimer: 0.7,
+      hazardTimer: 1.2,
+      pickupTimer: 6,
+      bossSpawned: false
     };
 
     let player = null;
@@ -470,87 +467,109 @@
     let hazards = [];
     let pickups = [];
     let particles = [];
+    let upgradeKeyListener = null;
 
-    // ========== UTILITY FUNCTIONS ==========
-    function clamp(v, min, max) {
-      return Math.min(Math.max(v, min), max);
+    function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+    function randomRange(min, max) { return min + Math.random() * (max - min); }
+
+    function setSelectedCharacter(key) {
+      state.playerSelected = key;
+      document.querySelectorAll('.char[data-character]').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.character === key);
+      });
     }
 
-    function randomRange(min, max) {
-      return min + Math.random() * (max - min);
-    }
-
-    // ========== SHIP CREATION ==========
     function createShip(characterKey) {
       const def = charDefs[characterKey];
       const group = new THREE.Group();
 
-      // Main hull
-      const hull = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.45, 2.2, 8, 16),
+      const lower = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.55, 2.2, 10, 22),
         new THREE.MeshStandardMaterial({
           color: def.color,
-          metalness: 0.5,
-          roughness: 0.4,
+          roughness: 0.35,
+          metalness: 0.65,
           emissive: def.color,
-          emissiveIntensity: 0.3
+          emissiveIntensity: 0.22
         })
       );
-      hull.castShadow = true;
-      hull.receiveShadow = true;
-      hull.rotation.z = Math.PI / 2;
-      group.add(hull);
+      lower.castShadow = true;
+      lower.receiveShadow = true;
+      lower.rotation.z = Math.PI / 2;
+      group.add(lower);
 
-      // Cockpit
-      const cockpit = new THREE.Mesh(
-        new THREE.SphereGeometry(0.35, 16, 16),
+      const nose = new THREE.Mesh(
+        new THREE.ConeGeometry(0.45, 1.25, 18),
         new THREE.MeshStandardMaterial({
-          color: 0xeeeeee,
-          metalness: 0.7,
+          color: 0xcfeaff,
+          metalness: 0.8,
           roughness: 0.2,
-          emissive: 0x4da6ff,
-          emissiveIntensity: 0.4
+          emissive: 0x7bdcff,
+          emissiveIntensity: 0.6
         })
       );
+      nose.rotation.x = -Math.PI / 2;
+      nose.position.z = -1.5;
+      nose.castShadow = true;
+      group.add(nose);
+
+      const cockpit = new THREE.Mesh(
+        new THREE.SphereGeometry(0.42, 18, 18, 0, Math.PI * 2, 0, Math.PI * 0.85),
+        new THREE.MeshStandardMaterial({
+          color: 0xeaf6ff,
+          metalness: 0.75,
+          roughness: 0.18,
+          emissive: 0x4da6ff,
+          emissiveIntensity: 0.35
+        })
+      );
+      cockpit.position.set(0, 0.08, 0.7);
+      cockpit.scale.set(1.3, 0.9, 1.2);
       cockpit.castShadow = true;
-      cockpit.position.z = 0.85;
       group.add(cockpit);
 
-      // Wings/Stabilizers
+      const wingGeo = new THREE.BoxGeometry(1.6, 0.12, 2.1);
+      const wingMat = new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.8, roughness: 0.3, emissive: def.color, emissiveIntensity: 0.18 });
+      const leftWing = new THREE.Mesh(wingGeo, wingMat);
+      const rightWing = leftWing.clone();
+      leftWing.position.set(-1.15, 0, -0.2);
+      rightWing.position.set(1.15, 0, -0.2);
+      leftWing.castShadow = true;
+      rightWing.castShadow = true;
+      group.add(leftWing, rightWing);
+
+      const finGeo = new THREE.BoxGeometry(0.1, 0.9, 0.8);
+      const finMat = new THREE.MeshStandardMaterial({ color: 0x9ec7ff, metalness: 0.7, roughness: 0.3 });
+      const fin1 = new THREE.Mesh(finGeo, finMat);
+      const fin2 = fin1.clone();
+      fin1.position.set(0, 0.9, -0.8);
+      fin2.position.set(0, -0.9, -0.8);
+      group.add(fin1, fin2);
+
+      const engineGeo = new THREE.CylinderGeometry(0.18, 0.22, 0.9, 16);
+      const engineMat = new THREE.MeshStandardMaterial({ color: 0x202b3d, metalness: 0.9, roughness: 0.25 });
       for (let side of [-1, 1]) {
-        const wing = new THREE.Mesh(
-          new THREE.BoxGeometry(1.2, 0.1, 1.6),
-          new THREE.MeshStandardMaterial({
-            color: def.color,
-            metalness: 0.4,
-            roughness: 0.35,
-            emissive: def.color,
-            emissiveIntensity: 0.2
-          })
-        );
-        wing.castShadow = true;
-        wing.receiveShadow = true;
-        wing.position.set(side * 0.8, 0, -0.3);
-        group.add(wing);
+        const engine = new THREE.Mesh(engineGeo, engineMat);
+        engine.position.set(side * 0.95, -0.1, -1.55);
+        engine.rotation.x = Math.PI / 2;
+        engine.castShadow = true;
+        group.add(engine);
+
+        const glow = new THREE.PointLight(def.color, 1.5, 12, 2);
+        glow.position.set(side * 0.95, -0.1, -2.1);
+        group.add(glow);
       }
 
-      // Engine glow
-      const engineGlow = new THREE.PointLight(def.color, 1.2, 12);
-      engineGlow.position.z = -1.5;
-      group.add(engineGlow);
-
-      // Thrust trail
-      const trailGeo = new THREE.BufferGeometry();
-      const trailPositions = new Float32Array(12);
-      for (let i = 0; i < 4; i++) {
-        trailPositions[i * 3] = (Math.random() - 0.5) * 0.6;
-        trailPositions[i * 3 + 1] = (Math.random() - 0.5) * 0.6;
-        trailPositions[i * 3 + 2] = -1.5 - Math.random() * 2;
+      const thrusterGeo = new THREE.ConeGeometry(0.15, 0.5, 10);
+      const thrusterMat = new THREE.MeshStandardMaterial({ color: 0x8fe8ff, emissive: def.color, emissiveIntensity: 0.8 });
+      for (let side of [-1, 1]) {
+        const thruster = new THREE.Mesh(thrusterGeo, thrusterMat);
+        thruster.position.set(side * 0.9, 0, -1.95);
+        thruster.rotation.x = Math.PI / 2;
+        group.add(thruster);
       }
-      trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-      const trail = new THREE.Points(trailGeo, new THREE.PointsMaterial({ color: def.color, size: 0.08 }));
-      group.add(trail);
 
+      group.rotation.y = Math.PI;
       return group;
     }
 
@@ -559,7 +578,6 @@
       const ship = createShip(characterKey);
       ship.position.set(0, 0, 5);
       scene.add(ship);
-
       return {
         mesh: ship,
         characterKey,
@@ -577,173 +595,6 @@
       };
     }
 
-    // ========== ENEMY CREATION ==========
-    function createEnemy(type = 'striker') {
-      const palette = {
-        striker: 0xff5d73,
-        bomber: 0xff9f43,
-        turret: 0xa07dff,
-        swarm: 0x7ef0ff,
-        boss: 0xff3f5c
-      };
-
-      const color = palette[type];
-      const group = new THREE.Group();
-
-      if (type === 'striker') {
-        const body = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.2, 8), new THREE.MeshStandardMaterial({ color, metalness: 0.3, roughness: 0.4, emissive: color, emissiveIntensity: 0.3 }));
-        body.castShadow = true;
-        body.rotation.x = Math.PI / 2;
-        group.add(body);
-      } else if (type === 'bomber') {
-        const body = new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), new THREE.MeshStandardMaterial({ color, metalness: 0.4, roughness: 0.3, emissive: color, emissiveIntensity: 0.35 }));
-        body.castShadow = true;
-        group.add(body);
-      } else if (type === 'turret') {
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 0.4, 8), new THREE.MeshStandardMaterial({ color: 0x664d8f, metalness: 0.5, roughness: 0.3 }));
-        base.castShadow = true;
-        group.add(base);
-        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.2, 6), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.4 }));
-        barrel.castShadow = true;
-        barrel.position.z = 0.8;
-        barrel.rotation.x = Math.PI / 2;
-        group.add(barrel);
-      } else if (type === 'swarm') {
-        const body = new THREE.Mesh(new THREE.TetrahedronGeometry(0.35, 0), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.4 }));
-        body.castShadow = true;
-        group.add(body);
-      } else if (type === 'boss') {
-        const core = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 16), new THREE.MeshStandardMaterial({ color, metalness: 0.6, roughness: 0.3, emissive: color, emissiveIntensity: 0.35 }));
-        core.castShadow = true;
-        group.add(core);
-        for (let i = 0; i < 4; i++) {
-          const spike = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.5, 6), new THREE.MeshStandardMaterial({ color: 0xff7a7a, emissive: 0xff3e3e, emissiveIntensity: 0.3 }));
-          spike.castShadow = true;
-          const angle = (i / 4) * Math.PI * 2;
-          spike.position.set(Math.cos(angle) * 1.8, Math.sin(angle) * 1.8, 0);
-          spike.rotation.z = angle;
-          group.add(spike);
-        }
-      }
-
-      group.position.set(randomRange(-8, 8), randomRange(-5, 5), -75);
-      scene.add(group);
-
-      const stats = {
-        striker: { speed: 4.8, health: 28, radius: 0.9, score: 50, attack: 16 },
-        bomber: { speed: 3.2, health: 55, radius: 1.3, score: 80, attack: 24 },
-        turret: { speed: 2.5, health: 35, radius: 1.0, score: 65, attack: 20 },
-        swarm: { speed: 7.0, health: 18, radius: 0.7, score: 35, attack: 12 },
-        boss: { speed: 2.2, health: 280, radius: 2.6, score: 1200, attack: 40 }
-      }[type];
-
-      return {
-        mesh: group,
-        type,
-        speed: stats.speed + state.wave * 0.3,
-        health: stats.health,
-        maxHealth: stats.health,
-        radius: stats.radius,
-        scoreValue: stats.score,
-        attack: stats.attack,
-        phase: Math.random() * Math.PI * 2
-      };
-    }
-
-    function spawnEnemy(type = 'striker') {
-      const enemy = createEnemy(type);
-      enemies.push(enemy);
-    }
-
-    // ========== HAZARD/ASTEROID CREATION ==========
-    function createAsteroid() {
-      const size = randomRange(0.6, 1.2);
-      const geo = new THREE.IcosahedronGeometry(size, 2);
-      const mat = new THREE.MeshStandardMaterial({
-        color: 0x6b7280,
-        metalness: 0.3,
-        roughness: 0.7,
-        map: new THREE.CanvasTexture(createRockTexture())
-      });
-
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      mesh.position.set(randomRange(-8, 8), randomRange(-5, 5), -80);
-      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-      scene.add(mesh);
-
-      hazards.push({
-        mesh,
-        speed: randomRange(4.5, 7.5) + state.wave * 0.15,
-        radius: size,
-        spin: randomRange(0.5, 2.0)
-      });
-    }
-
-    function createRockTexture() {
-      const canvas = document.createElement('canvas');
-      canvas.width = 64;
-      canvas.height = 64;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#7a8aa5';
-      ctx.fillRect(0, 0, 64, 64);
-      for (let i = 0; i < 40; i++) {
-        ctx.fillStyle = `rgba(100, 110, 130, ${Math.random() * 0.5})`;
-        ctx.fillRect(Math.random() * 64, Math.random() * 64, Math.random() * 16, Math.random() * 16);
-      }
-      return canvas;
-    }
-
-    // ========== PICKUP CREATION ==========
-    function createPickup() {
-      const mesh = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.35, 1),
-        new THREE.MeshStandardMaterial({
-          color: 0x80ffe5,
-          emissive: 0x80ffe5,
-          emissiveIntensity: 0.7,
-          metalness: 0.8,
-          roughness: 0.2
-        })
-      );
-      mesh.castShadow = true;
-      mesh.position.set(randomRange(-7, 7), randomRange(-4, 4), -65);
-      scene.add(mesh);
-
-      pickups.push({
-        mesh,
-        radius: 0.7,
-        value: 120 + Math.random() * 100,
-        rotation: Math.random() * Math.PI * 2
-      });
-    }
-
-    // ========== PROJECTILE CREATION ==========
-    function fireBullet() {
-      if (!player || player.cooldown > 0) return;
-
-      const bullet = new THREE.Mesh(
-        new THREE.SphereGeometry(0.15, 8, 8),
-        new THREE.MeshBasicMaterial({ color: 0xfff1a5, emissive: 0xff8800 })
-      );
-
-      bullet.position.copy(player.mesh.position);
-      bullet.position.z -= 1.5;
-      bullet.castShadow = true;
-
-      bullets.push({
-        mesh: bullet,
-        velocity: new THREE.Vector3(0, 0, -14),
-        life: 2.5,
-        damage: player.damage
-      });
-
-      scene.add(bullet);
-      player.cooldown = player.fireRate * (player.autoFireBoost > 0 ? 0.5 : 1);
-    }
-
-    // ========== PARTICLES ==========
     function spawnParticles(position, color, count = 15) {
       for (let i = 0; i < count; i++) {
         const mesh = new THREE.Mesh(
@@ -760,7 +611,93 @@
       }
     }
 
-    // ========== HUD UPDATES ==========
+    function fireBullet() {
+      if (!player || player.cooldown > 0) return;
+      const bullet = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xfff1a5 })
+      );
+      bullet.position.copy(player.mesh.position);
+      bullet.position.z -= 1.8;
+      bullets.push({ mesh: bullet, velocity: new THREE.Vector3(0, 0, -14), life: 2.5, damage: player.damage });
+      scene.add(bullet);
+      player.cooldown = player.fireRate * (player.autoFireBoost > 0 ? 0.5 : 1);
+    }
+
+    function createEnemy(type = 'striker') {
+      const palette = { striker: 0xff5d73, bomber: 0xff9f43, turret: 0xa07dff, swarm: 0x7ef0ff, boss: 0xff3f5c };
+      const color = palette[type] || 0xff5d73;
+      const group = new THREE.Group();
+
+      if (type === 'striker') {
+        const core = new THREE.Mesh(new THREE.ConeGeometry(0.44, 1.2, 8), new THREE.MeshStandardMaterial({ color, metalness: 0.45, roughness: 0.35, emissive: color, emissiveIntensity: 0.35 }));
+        core.rotation.x = Math.PI / 2;
+        group.add(core);
+      } else if (type === 'bomber') {
+        const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), new THREE.MeshStandardMaterial({ color, metalness: 0.52, roughness: 0.28, emissive: color, emissiveIntensity: 0.35 }));
+        group.add(core);
+      } else if (type === 'turret') {
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.65, 0.45, 20), new THREE.MeshStandardMaterial({ color: 0x5b4a7d, metalness: 0.55, roughness: 0.35 }));
+        group.add(base);
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.2, 12), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.4 }));
+        barrel.rotation.x = Math.PI / 2;
+        barrel.position.z = 0.8;
+        group.add(barrel);
+      } else if (type === 'swarm') {
+        const core = new THREE.Mesh(new THREE.TetrahedronGeometry(0.38, 0), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.4 }));
+        group.add(core);
+      } else if (type === 'boss') {
+        const core = new THREE.Mesh(new THREE.SphereGeometry(1.5, 20, 20), new THREE.MeshStandardMaterial({ color, metalness: 0.7, roughness: 0.25, emissive: color, emissiveIntensity: 0.4 }));
+        group.add(core);
+        for (let i = 0; i < 6; i++) {
+          const spike = new THREE.Mesh(new THREE.ConeGeometry(0.27, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0xff7a7a, emissive: 0xff3e3e, emissiveIntensity: 0.38 }));
+          const a = (i / 6) * Math.PI * 2;
+          spike.position.set(Math.cos(a) * 1.75, Math.sin(a) * 1.75, 0.2);
+          spike.rotation.z = a;
+          group.add(spike);
+        }
+      }
+
+      group.position.set(type === 'boss' ? 0 : randomRange(-8, 8), type === 'boss' ? 0 : randomRange(-5, 5), type === 'boss' ? -35 : -75);
+      scene.add(group);
+
+      const stats = {
+        striker: { speed: 4.8, health: 28, radius: 0.9, score: 50, attack: 16 },
+        bomber: { speed: 3.2, health: 55, radius: 1.3, score: 80, attack: 24 },
+        turret: { speed: 2.5, health: 35, radius: 1.0, score: 65, attack: 20 },
+        swarm: { speed: 7.0, health: 18, radius: 0.7, score: 35, attack: 12 },
+        boss: { speed: 2.2, health: 280, radius: 2.6, score: 1200, attack: 42 }
+      }[type];
+
+      return { mesh: group, type, speed: stats.speed + state.wave * 0.3, health: stats.health, maxHealth: stats.health, radius: stats.radius, scoreValue: stats.score, attack: stats.attack, phase: Math.random() * Math.PI * 2 };
+    }
+
+    function spawnEnemy(type = 'striker') { enemies.push(createEnemy(type)); }
+
+    function createAsteroid() {
+      const size = randomRange(0.6, 1.2);
+      const geo = new THREE.IcosahedronGeometry(size, 2);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x6b7280, metalness: 0.25, roughness: 0.9 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(randomRange(-8, 8), randomRange(-5, 5), -80);
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+      hazards.push({ mesh, speed: randomRange(4.5, 7.5) + state.wave * 0.15, radius: size, spin: randomRange(0.5, 2.0) });
+    }
+
+    function createPickup() {
+      const mesh = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.35, 1),
+        new THREE.MeshStandardMaterial({ color: 0x80ffe5, emissive: 0x80ffe5, emissiveIntensity: 0.7, metalness: 0.8, roughness: 0.2 })
+      );
+      mesh.position.set(randomRange(-7, 7), randomRange(-4, 4), -65);
+      mesh.castShadow = true;
+      scene.add(mesh);
+      pickups.push({ mesh, radius: 0.7, value: 120 + Math.random() * 100, rotation: Math.random() * Math.PI * 2 });
+    }
+
     function updateHud() {
       if (!player) return;
       ui.score.textContent = Math.floor(state.score).toLocaleString();
@@ -768,12 +705,10 @@
       ui.health.textContent = Math.max(0, Math.ceil(player.health));
       ui.shield.textContent = Math.max(0, Math.ceil(player.shield));
       ui.combo.textContent = `x${state.combo}`;
-
       ui.healthBar.style.width = (player.health / charDefs[player.characterKey].health) * 100 + '%';
       ui.shieldBar.style.width = (player.shield / player.shieldMax) * 100 + '%';
     }
 
-    // ========== DAMAGE SYSTEM ==========
     function damagePlayer(amount) {
       if (!player) return;
       let remaining = amount;
@@ -782,12 +717,8 @@
         player.shield -= absorbed;
         remaining -= absorbed;
       }
-      if (remaining > 0) {
-        player.health -= remaining;
-      }
-      if (player.health <= 0) {
-        endRun();
-      }
+      if (remaining > 0) player.health -= remaining;
+      if (player.health <= 0) endRun();
       updateHud();
     }
 
@@ -799,27 +730,22 @@
       location.reload();
     }
 
-    // ========== UPGRADE SYSTEM ==========
     function applyUpgrade(index) {
       const upgrades = [
-        { key: 'damage', apply: () => { player.damage *= 1.2; } },
-        { key: 'fireRate', apply: () => { player.fireRate *= 0.88; } },
-        { key: 'shield', apply: () => { player.shieldMax *= 1.28; player.shield = Math.min(player.shieldMax, player.shield + 20); } },
-        { key: 'move', apply: () => { player.moveSpeed *= 1.15; } },
-        { key: 'ability', apply: () => { player.abilityCooldown = Math.max(0.5, player.abilityCooldown * 0.75); } }
+        { apply: () => { player.damage *= 1.2; } },
+        { apply: () => { player.fireRate *= 0.88; } },
+        { apply: () => { player.shieldMax *= 1.28; player.shield = Math.min(player.shieldMax, player.shield + 20); } },
+        { apply: () => { player.moveSpeed *= 1.15; } },
+        { apply: () => { player.abilityCooldown = Math.max(0.5, player.abilityCooldown * 0.75); } }
       ];
-
       const upgrade = upgrades[index % upgrades.length];
       if (upgrade) upgrade.apply();
-
       state.running = true;
       state.paused = false;
       state.nextUpgradeIn = 12;
       ui.upgradeSelect.classList.add('hidden');
       updateHud();
     }
-
-    let upgradeKeyListener = null;
 
     function bindUpgradeKeys() {
       if (upgradeKeyListener) window.removeEventListener('keydown', upgradeKeyListener);
@@ -835,13 +761,11 @@
       state.running = false;
       state.paused = true;
       ui.upgradeSelect.classList.remove('hidden');
-
       const upgrades = [
         { label: '⚡ Firepower', description: '+20% damage' },
         { label: '🔥 Rapid Fire', description: '-12% fire rate' },
         { label: '🛡 Heavy Plating', description: '+28% shield' }
       ];
-
       ui.upgradeGrid.innerHTML = '';
       upgrades.forEach((u, idx) => {
         const btn = document.createElement('button');
@@ -850,17 +774,13 @@
         btn.addEventListener('click', () => applyUpgrade(idx));
         ui.upgradeGrid.appendChild(btn);
       });
-
       bindUpgradeKeys();
     }
 
-    // ========== GAME UPDATES ==========
     function updatePlayer(dt) {
       if (!player) return;
-
       const moveX = (keyState['KeyD'] || keyState['ArrowRight'] ? 1 : 0) - (keyState['KeyA'] || keyState['ArrowLeft'] ? 1 : 0);
       const moveY = (keyState['KeyW'] || keyState['ArrowUp'] ? 1 : 0) - (keyState['KeyS'] || keyState['ArrowDown'] ? 1 : 0);
-
       const speed = player.moveSpeed * (player.dodgeBoost > 0 ? 1.6 : 1);
       player.mesh.position.x += moveX * speed * dt;
       player.mesh.position.y += moveY * speed * dt;
@@ -906,18 +826,15 @@
         e.mesh.position.z += e.speed * dt;
         e.mesh.position.x += Math.sin((state.elapsed + e.phase) * 1.3) * 0.8 * dt;
         e.mesh.rotation.y += dt * 2.5;
-
         if (e.type === 'boss') {
           e.mesh.position.x += Math.sin(state.elapsed * 1.2) * 1.2 * dt;
           e.mesh.position.y += Math.cos(state.elapsed * 1.4) * 0.9 * dt;
         }
-
         if (e.mesh.position.z > 10) {
           scene.remove(e.mesh);
           enemies.splice(i, 1);
           continue;
         }
-
         if (e.mesh.position.distanceTo(player.mesh.position) < e.radius + 0.8) {
           damagePlayer(e.attack);
           scene.remove(e.mesh);
@@ -933,14 +850,12 @@
         h.mesh.position.z += h.speed * dt;
         h.mesh.rotation.x += h.spin * dt;
         h.mesh.rotation.y += h.spin * 0.7 * dt;
-
         if (h.mesh.position.distanceTo(player.mesh.position) < h.radius + 0.8) {
           damagePlayer(28);
           scene.remove(h.mesh);
           hazards.splice(i, 1);
           continue;
         }
-
         if (h.mesh.position.z > 10) {
           scene.remove(h.mesh);
           hazards.splice(i, 1);
@@ -953,7 +868,6 @@
         const p = pickups[i];
         p.mesh.position.z += 5.5 * dt;
         p.mesh.rotation.y += 2.8 * dt;
-
         if (p.mesh.position.distanceTo(player.mesh.position) < p.radius + 0.8) {
           state.score += p.value * state.combo;
           spawnParticles(p.mesh.position, 0x80ffe5, 20);
@@ -961,7 +875,6 @@
           pickups.splice(i, 1);
           continue;
         }
-
         if (p.mesh.position.z > 10) {
           scene.remove(p.mesh);
           pickups.splice(i, 1);
@@ -978,7 +891,6 @@
             enemy.health -= bullet.damage;
             scene.remove(bullet.mesh);
             bullets.splice(i, 1);
-
             if (enemy.health <= 0) {
               state.score += enemy.scoreValue * state.combo;
               state.combo = Math.min(state.combo + 1, 15);
@@ -1005,9 +917,9 @@
     }
 
     function spawnWaveContent(dt) {
-      state.spawnTimer = (state.spawnTimer || 0.7) - dt;
-      state.hazardTimer = (state.hazardTimer || 1.2) - dt;
-      state.pickupTimer = (state.pickupTimer || 6) - dt;
+      state.spawnTimer -= dt;
+      state.hazardTimer -= dt;
+      state.pickupTimer -= dt;
 
       if (state.spawnTimer <= 0) {
         const types = ['striker', 'swarm', 'turret', 'bomber'];
@@ -1033,17 +945,13 @@
         state.bossSpawned = true;
         spawnEnemy('boss');
       }
-      if (state.elapsed >= state.nextUpgradeIn) {
-        triggerUpgrade();
-      }
+      if (state.elapsed >= state.nextUpgradeIn) triggerUpgrade();
     }
 
-    // ========== RADAR ==========
     function drawRadar() {
       const radarCtx = ui.radarCanvas.getContext('2d');
       const w = ui.radarCanvas.width;
       const h = ui.radarCanvas.height;
-
       radarCtx.fillStyle = 'rgba(8, 12, 24, 0.8)';
       radarCtx.fillRect(0, 0, w, h);
       radarCtx.strokeStyle = 'rgba(123, 220, 255, 0.3)';
@@ -1053,8 +961,6 @@
       radarCtx.stroke();
 
       const scale = 0.02;
-
-      // Player
       if (player) {
         const px = w / 2 + player.mesh.position.x * scale;
         const py = h / 2 + player.mesh.position.y * scale;
@@ -1064,7 +970,6 @@
         radarCtx.fill();
       }
 
-      // Enemies
       enemies.forEach((e) => {
         const ex = w / 2 + e.mesh.position.x * scale;
         const ey = h / 2 + e.mesh.position.y * scale;
@@ -1074,10 +979,9 @@
         radarCtx.fill();
       });
 
-      // Hazards
       hazards.forEach((h) => {
         const hx = w / 2 + h.mesh.position.x * scale;
-        const hy = h / 2 + h.mesh.position.y * scale;
+        const hy = h.mesh.position.y * scale + h / 2;
         radarCtx.fillStyle = 'rgba(122, 138, 165, 0.6)';
         radarCtx.beginPath();
         radarCtx.arc(hx, hy, 1, 0, Math.PI * 2);
@@ -1085,7 +989,6 @@
       });
     }
 
-    // ========== CHARACTER SELECTION ==========
     document.querySelectorAll('.char[data-character]').forEach((button) => {
       button.addEventListener('click', () => {
         document.querySelectorAll('.char[data-character]').forEach((b) => b.classList.remove('active'));
@@ -1096,35 +999,16 @@
 
     window.addEventListener('keydown', (event) => {
       if (ui.charSelect.classList.contains('hidden')) return;
-      if (event.code === 'Digit1') {
-        event.preventDefault();
-        document.querySelectorAll('.char[data-character]').forEach((b) => b.classList.remove('active'));
-        document.querySelector('[data-character="vanguard"]').classList.add('active');
-        state.playerSelected = 'vanguard';
-      } else if (event.code === 'Digit2') {
-        event.preventDefault();
-        document.querySelectorAll('.char[data-character]').forEach((b) => b.classList.remove('active'));
-        document.querySelector('[data-character="wisp"]').classList.add('active');
-        state.playerSelected = 'wisp';
-      } else if (event.code === 'Digit3') {
-        event.preventDefault();
-        document.querySelectorAll('.char[data-character]').forEach((b) => b.classList.remove('active'));
-        document.querySelector('[data-character="ranger"]').classList.add('active');
-        state.playerSelected = 'ranger';
-      } else if (event.code === 'Enter') {
-        event.preventDefault();
-        startGame(state.playerSelected);
-      }
+      if (event.code === 'Digit1') { event.preventDefault(); setSelectedCharacter('vanguard'); }
+      else if (event.code === 'Digit2') { event.preventDefault(); setSelectedCharacter('wisp'); }
+      else if (event.code === 'Digit3') { event.preventDefault(); setSelectedCharacter('ranger'); }
+      else if (event.code === 'Enter') { event.preventDefault(); startGame(state.playerSelected); }
     });
 
-    ui.startBtn.addEventListener('click', () => {
-      startGame(state.playerSelected);
-    });
+    ui.startBtn.addEventListener('click', () => startGame(state.playerSelected));
 
-    // ========== GAME START ==========
     function startGame(characterKey) {
       if (player) scene.remove(player.mesh);
-
       state.running = true;
       state.paused = false;
       state.score = 0;
@@ -1138,7 +1022,6 @@
       state.pickupTimer = 6;
 
       player = createPlayer(characterKey);
-
       bullets = [];
       enemies = [];
       hazards = [];
@@ -1151,7 +1034,6 @@
       updateHud();
     }
 
-    // ========== MAIN ANIMATION LOOP ==========
     const clock = new THREE.Clock();
 
     function animate() {
@@ -1161,7 +1043,6 @@
       if (state.running && !state.paused) {
         state.elapsed += dt;
         state.score += dt * 20 + state.combo * 0.9;
-
         updatePlayer(dt);
         updateBullets(dt);
         updateEnemies(dt);
@@ -1174,6 +1055,10 @@
 
       starField.rotation.z += dt * 0.02;
       starField.rotation.x = Math.sin(state.elapsed * 0.2) * 0.15;
+      planets.forEach((element) => {
+        element.planet.rotation.y += dt * element.drift;
+        if (element.ring) element.ring.rotation.z += dt * 0.14;
+      });
 
       if (player) {
         camera.position.x = player.mesh.position.x * 0.7;
@@ -1187,6 +1072,7 @@
       renderer.render(scene, camera);
     }
 
+    setSelectedCharacter('vanguard');
     updateHud();
     animate();
   </script>
