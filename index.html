@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Star Drift: Rift Runner</title>
+  <style>
+    :root {
+      --bg: #050816;
+      --panel: rgba(10, 15, 30, 0.82);
+      --panel-border: rgba(120, 180, 255, 0.7);
+      --accent: #7bdcff;
+      --accent-2: #ffc857;
+      --danger: #ff5d73;
+      --success: #70f2a8;
+      --text: #eaf6ff;
+      --shadow: rgba(0, 0, 0, 0.4);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at top, #0a1630 0%, var(--bg) 60%);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #hud {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 15;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      pointer-events: none;
+    }
+
+    .hud-box {
+      background: rgba(9, 14, 27, 0.66);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 16px;
+      letter-spacing: 0.04em;
+      box-shadow: 0 0 12px rgba(123,220,255,0.12);
+    }
+
+    .panel {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(2, 4, 12, 0.7);
+      z-index: 20;
+      backdrop-filter: blur(5px);
+    }
+
+    .panel.hidden {
+      display: none !important;
+    }
+
+    .card {
+      width: min(780px, 90vw);
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: 0 25px 55px rgba(0, 0, 0, 0.45), 0 0 30px rgba(123,220,255,0.08);
+      padding: 24px 28px;
+    }
+
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: clamp(26px, 4vw, 46px);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: rgba(234,246,255,0.78);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .char-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 14px;
+      margin: 18px 0 16px;
+    }
+
+    .char {
+      background: rgba(17, 24, 40, 0.86);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px;
+      padding: 14px 12px;
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      text-align: left;
+      min-height: 160px;
+    }
+
+    .char.active {
+      border-color: rgba(123,220,255,0.85);
+      box-shadow: 0 0 18px rgba(123,220,255,0.2);
+      background: rgba(19, 31, 51, 0.95);
+    }
+
+    .char:hover {
+      transform: translateY(-2px);
+      border-color: rgba(123,220,255,0.7);
+      box-shadow: 0 0 14px rgba(123,220,255,0.16);
+    }
+
+    .char h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      color: var(--accent);
+    }
+
+    .char p {
+      margin: 4px 0;
+      font-size: 13px;
+      color: rgba(234,246,255,0.85);
+      line-height: 1.38;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .small {
+      color: rgba(234,246,255,0.74);
+      font-size: 13px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid rgba(123,220,255,0.7);
+      background: linear-gradient(180deg, rgba(20, 35, 70, 0.96), rgba(10, 18, 35, 0.96));
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 15px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 14px rgba(123,220,255,0.18);
+    }
+
+    .keyhint {
+      color: var(--accent-2);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div class="hud-box" id="scoreBox">Score: 0</div>
+    <div class="hud-box" id="waveBox">Wave: 1</div>
+    <div class="hud-box" id="healthBox">Hull: 100</div>
+    <div class="hud-box" id="shieldBox">Shield: 0</div>
+    <div class="hud-box" id="comboBox">Combo: x1</div>
+  </div>
+
+  <div id="charSelect" class="panel">
+    <div class="card">
+      <h1>Star Drift</h1>
+      <p class="subtitle">
+        Dodge hazards, eliminate drones, collect relics, and survive the collapsing rift lanes.
+        <span class="keyhint">Press 1, 2, or 3</span> to choose a pilot, then press <span class="keyhint">Enter</span> to launch.
+      </p>
+
+      <div class="char-grid">
+        <button class="char active" data-character="vanguard">
+          <h3>1. Vanguard</h3>
+          <p>Strong shield and high survivability</p>
+          <p>Perfect for steady, defensive play</p>
+        </button>
+
+        <button class="char" data-character="wisp">
+          <h3>2. Wisp</h3>
+          <p>Fast movement and evasive bursts</p>
+          <p>High-risk, high-reward dodging</p>
+        </button>
+
+        <button class="char" data-character="ranger">
+          <h3>3. Ranger</h3>
+          <p>Balanced weapon output and control</p>
+          <p>Versatile and easy to master</p>
+        </button>
+      </div>
+
+      <div class="actions">
+        <div class="small">Controls: W/A/S/D move • Shift dash • Space fire</div>
+        <button id="startBtn">Launch Run</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="upgradeSelect" class="panel hidden">
+    <div class="card">
+      <h1>Upgrade</h1>
+      <p class="subtitle">
+        Choose one improvement for the next wave. <span class="keyhint">Press 1, 2, or 3</span> to make your pick.
+      </p>
+      <div class="char-grid" id="upgradeGrid"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050816);
+    scene.fog = new THREE.Fog(0x050816, 12, 80);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 2.2, 11);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x050816);
+    document.body.appendChild(renderer.domElement);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 1.15);
+    scene.add(ambient);
+
+    const dirLight = new THREE.DirectionalLight(0x7bdcff, 1.2);
+    dirLight.position.set(3, 8, 5);
+    scene.add(dirLight);
+
+    const starGeo = new THREE.BufferGeometry();
+    const starList = [];
+    for (let i = 0; i < 1500; i++) {
+      starList.push(
+        (Math.random() - 0.5) * 90,
+        (Math.random() - 0.5) * 45,
+        -Math.random() * 160
+      );
+    }
+    starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starList, 3));
+    const stars = new THREE.Points(
+      starGeo,
+      new THREE.PointsMaterial({ color: 0xcfeaff, size: 0.13, transparent: true, opacity: 0.9 })
+    );
+    scene.add(stars);
+
+    const keyState = {};
+    window.addEventListener('keydown', (event) => {
+      keyState[event.code] = true;
+      if (event.code === 'Space') event.preventDefault();
+    });
+    window.addEventListener('keyup', (event) => {
+      keyState[event.code] = false;
+    });
+
+    const charDefs = {
+      vanguard: {
+        name: 'Vanguard',
+        color: 0x7bdcff,
+        moveSpeed: 7,
+        fireRate: 0.25,
+        damage: 14,
+        health: 100,
+        shield: 38,
+        shieldMax: 38,
+        dodgePower: 1.0,
+        ability: 'Shield Burst'
+      },
+      wisp: {
+        name: 'Wisp',
+        color: 0xff9ef7,
+        moveSpeed: 9,
+        fireRate: 0.17,
+        damage: 10,
+        health: 72,
+        shield: 12,
+        shieldMax: 12,
+        dodgePower: 1.45,
+        ability: 'Blink Dash'
+      },
+      ranger: {
+        name: 'Ranger',
+        color: 0x8df8c0,
+        moveSpeed: 7.5,
+        fireRate: 0.15,
+        damage: 18,
+        health: 88,
+        shield: 18,
+        shieldMax: 18,
+        dodgePower: 1.2,
+        ability: 'Burst Fire'
+      }
+    };
+
+    const ui = {
+      score: document.getElementById('scoreBox'),
+      wave: document.getElementById('waveBox'),
+      health: document.getElementById('healthBox'),
+      shield: document.getElementById('shieldBox'),
+      combo: document.getElementById('comboBox'),
+      charSelect: document.getElementById('charSelect'),
+      upgradeSelect: document.getElementById('upgradeSelect'),
+      upgradeGrid: document.getElementById('upgradeGrid'),
+      startBtn: document.getElementById('startBtn')
+    };
+
+    const state = {
+      running: false,
+      paused: false,
+      score: 0,
+      wave: 1,
+      elapsed: 0,
+      combo: 1,
+      playerSelected: 'vanguard',
+      highScore: Number(localStorage.getItem('starDriftHighScore') || 0),
+      spawnTimer: 0.75,
+      hazardTimer: 1.2,
+      pickupTimer: 6,
+      bossSpawned: false,
+      nextUpgradeIn: 12,
+      upgradeHandlerBound: false
+    };
+
+    let player = null;
+    let bullets = [];
+    let enemies = [];
+    let hazards = [];
+    let pickups = [];
+    let particles = [];
+    let currentUpgradeListener = null;
+
+    function clamp(v, min, max) {
+      return Math.min(Math.max(v, min), max);
+    }
+
+    function randomRange(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function setSelectedCharacter(key) {
+      state.playerSelected = key;
+      document.querySelectorAll('.char[data-character]').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.character === key);
+      });
+    }
+
+    function createShip(color) {
+      const group = new THREE.Group();
+
+      const core = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.42, 1.5, 5, 10),
+        new THREE.MeshStandardMaterial({
+          color,
+          emissive: color,
+          emissiveIntensity: 0.5,
+          metalness: 0.35,
+          roughness: 0.32
+        })
+      );
+      core.rotation.z = Math.PI / 2;
+      group.add(core);
+
+      const wingGeo = new THREE.BoxGeometry(0.9, 0.12, 1.4);
+      const wingMat = new THREE.MeshStandardMaterial({
+        color: 0xcfeaff,
+        emissive: 0x5db8ff,
+        emissiveIntensity: 0.32
+      });
+
+      const leftWing = new THREE.Mesh(wingGeo, wingMat);
+      leftWing.position.set(-0.9, 0, 0);
+      const rightWing = leftWing.clone();
+      rightWing.position.x = 0.9;
+      group.add(leftWing, rightWing);
+
+      const nose = new THREE.Mesh(
+        new THREE.ConeGeometry(0.24, 0.7, 8),
+        new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          emissive: 0xcceeff,
+          emissiveIntensity: 0.7
+        })
+      );
+      nose.rotation.x = -Math.PI / 2;
+      nose.position.z = -1.1;
+      group.add(nose);
+
+      return group;
+    }
+
+    function createPlayer(characterKey) {
+      const def = charDefs[characterKey];
+      const ship = createShip(def.color);
+      ship.position.set(0, 0, 4.2);
+      scene.add(ship);
+
+      return {
+        mesh: ship,
+        characterKey,
+        health: def.health,
+        shield: def.shield,
+        shieldMax: def.shieldMax,
+        moveSpeed: def.moveSpeed,
+        fireRate: def.fireRate,
+        damage: def.damage,
+        dodgeBoost: 0,
+        autoFireBoost: 0,
+        abilityCooldown: 0,
+        color: def.color,
+        cooldown: 0
+      };
+    }
+
+    function spawnParticles(position, color, count = 12) {
+      for (let i = 0; i < count; i++) {
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(0.08 + Math.random() * 0.08, 6, 6),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
+        );
+        mesh.position.copy(position);
+        scene.add(mesh);
+        particles.push({
+          mesh,
+          velocity: new THREE.Vector3(
+            randomRange(-0.8, 0.8),
+            randomRange(-0.8, 0.8),
+            randomRange(-1.2, 0.8)
+          ),
+          life: 0.5 + Math.random() * 0.7
+        });
+      }
+    }
+
+    function fireBullet() {
+      if (!player || player.cooldown > 0) return;
+
+      const bullet = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xfff1a5 })
+      );
+
+      bullet.position.copy(player.mesh.position);
+      bullet.position.z -= 1.2;
+
+      bullets.push({
+        mesh: bullet,
+        velocity: new THREE.Vector3(0, 0, -12),
+        life: 2.4,
+        damage: player.damage
+      });
+
+      scene.add(bullet);
+      player.cooldown = player.fireRate * (player.autoFireBoost > 0 ? 0.5 : 1);
+    }
+
+    function spawnEnemy(type = 'striker') {
+      const palette = {
+        striker: 0xff5d73,
+        bomber: 0xff9f43,
+        turret: 0xa07dff,
+        swarm: 0x7ef0ff,
+        boss: 0xff3f5c
+      };
+
+      const color = palette[type] || 0xff5d73;
+      const mesh = new THREE.Mesh(
+        type === 'bomber'
+          ? new THREE.OctahedronGeometry(0.75, 0)
+          : type === 'turret'
+          ? new THREE.TorusKnotGeometry(0.42, 0.12, 28, 8)
+          : type === 'boss'
+          ? new THREE.TetrahedronGeometry(2.2, 0)
+          : new THREE.IcosahedronGeometry(type === 'swarm' ? 0.45 : 0.52, 0),
+        new THREE.MeshStandardMaterial({
+          color,
+          emissive: color,
+          emissiveIntensity: 0.45,
+          metalness: 0.2,
+          roughness: 0.45
+        })
+      );
+
+      const x = type === 'boss' ? 0 : randomRange(-7, 7);
+      const y = type === 'boss' ? 0 : randomRange(-4.2, 4.2);
+      const z = type === 'boss' ? -32 : -65 - Math.random() * 25;
+      mesh.position.set(x, y, z);
+
+      const stats = {
+        striker: { speed: 4.6, health: 24, radius: 0.8, score: 40, attack: 15 },
+        bomber: { speed: 3.0, health: 48, radius: 1.1, score: 72, attack: 22 },
+        turret: { speed: 3.7, health: 30, radius: 0.9, score: 55, attack: 18 },
+        swarm: { speed: 6.2, health: 16, radius: 0.62, score: 28, attack: 12 },
+        boss: { speed: 2.0, health: 220, radius: 2.4, score: 800, attack: 36 }
+      }[type];
+
+      const enemy = {
+        mesh,
+        type,
+        speed: stats.speed + state.wave * 0.28,
+        health: stats.health,
+        maxHealth: stats.health,
+        radius: stats.radius,
+        scoreValue: stats.score,
+        attack: stats.attack,
+        drift: randomRange(-1.2, 1.2),
+        phase: Math.random() * Math.PI * 2
+      };
+
+      scene.add(mesh);
+      enemies.push(enemy);
+    }
+
+    function spawnHazard() {
+      const mesh = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.82, 0),
+        new THREE.MeshStandardMaterial({
+          color: 0x7a8aa5,
+          emissive: 0x9bb0ff,
+          emissiveIntensity: 0.28
+        })
+      );
+      mesh.position.set(randomRange(-8, 8), randomRange(-5, 5), -72);
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      scene.add(mesh);
+
+      hazards.push({
+        mesh,
+        speed: randomRange(4.3, 7.2) + state.wave * 0.14,
+        radius: 1.0,
+        spin: randomRange(0.8, 2.2)
+      });
+    }
+
+    function spawnPickup() {
+      const mesh = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.35, 0),
+        new THREE.MeshStandardMaterial({
+          color: 0x80ffe5,
+          emissive: 0x80ffe5,
+          emissiveIntensity: 0.8
+        })
+      );
+      mesh.position.set(randomRange(-7, 7), randomRange(-4, 4), -62);
+      scene.add(mesh);
+
+      pickups.push({
+        mesh,
+        radius: 0.7,
+        value: 100 + Math.random() * 90
+      });
+    }
+
+    function updateHud() {
+      if (!player) return;
+      ui.score.textContent = `Score: ${Math.floor(state.score)}`;
+      ui.wave.textContent = `Wave: ${state.wave}`;
+      ui.health.textContent = `Hull: ${Math.max(0, Math.ceil(player.health))}`;
+      ui.shield.textContent = `Shield: ${Math.max(0, Math.ceil(player.shield))}`;
+      ui.combo.textContent = `Combo: x${state.combo}`;
+    }
+
+    function damagePlayer(amount) {
+      if (!player) return;
+
+      let remaining = amount;
+      if (player.shield > 0) {
+        const absorbed = Math.min(player.shield, remaining);
+        player.shield -= absorbed;
+        remaining -= absorbed;
+      }
+
+      if (remaining > 0) {
+        player.health -= remaining;
+      }
+
+      if (player.health <= 0) {
+        endRun();
+      }
+
+      updateHud();
+    }
+
+    function endRun() {
+      state.running = false;
+      state.highScore = Math.max(state.highScore, Math.floor(state.score));
+      localStorage.setItem('starDriftHighScore', String(state.highScore));
+      const message = `Run ended\nScore: ${Math.floor(state.score)}\nBest: ${state.highScore}`;
+      alert(message);
+      location.reload();
+    }
+
+    function applyUpgrade(index) {
+      const upgrades = [
+        { key: 'damage', label: 'Sharper Weapons', description: '+18% damage', apply: () => { player.damage *= 1.18; } },
+        { key: 'fireRate', label: 'Faster Fire', description: '-10% fire delay', apply: () => { player.fireRate *= 0.9; } },
+        { key: 'shield', label: 'Sturdy Shields', description: '+25% shield capacity', apply: () => { player.shieldMax *= 1.25; player.shield = Math.min(player.shieldMax, player.shield + 18); } },
+        { key: 'move', label: 'Agile Drift', description: '+15% speed', apply: () => { player.moveSpeed *= 1.15; } },
+        { key: 'ability', label: 'Rapid Recharge', description: 'Faster skill cooldown', apply: () => { player.abilityCooldown = Math.max(0.5, player.abilityCooldown * 0.8); } }
+      ];
+
+      const upgrade = upgrades[index % upgrades.length];
+      if (upgrade) upgrade.apply();
+
+      state.running = true;
+      state.paused = false;
+      state.nextUpgradeIn = 12;
+      ui.upgradeSelect.classList.add('hidden');
+      updateHud();
+    }
+
+    function bindUpgradeKeys() {
+      if (currentUpgradeListener) {
+        window.removeEventListener('keydown', currentUpgradeListener);
+      }
+
+      currentUpgradeListener = (event) => {
+        if (event.code === 'Digit1') {
+          event.preventDefault();
+          applyUpgrade(0);
+        } else if (event.code === 'Digit2') {
+          event.preventDefault();
+          applyUpgrade(1);
+        } else if (event.code === 'Digit3') {
+          event.preventDefault();
+          applyUpgrade(2);
+        }
+      };
+
+      window.addEventListener('keydown', currentUpgradeListener);
+    }
+
+    function triggerUpgrade() {
+      state.running = false;
+      state.paused = true;
+      ui.upgradeSelect.classList.remove('hidden');
+
+      const upgrades = [
+        { label: 'Sharper Weapons', description: '+18% damage' },
+        { label: 'Faster Fire', description: '-10% fire delay' },
+        { label: 'Sturdy Shields', description: '+25% shield capacity' }
+      ];
+
+      ui.upgradeGrid.innerHTML = '';
+      upgrades.forEach((u, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'char';
+        btn.innerHTML = `<h3>${index + 1}. ${u.label}</h3><p>${u.description}</p>`;
+        btn.addEventListener('click', () => applyUpgrade(index));
+        ui.upgradeGrid.appendChild(btn);
+      });
+
+      bindUpgradeKeys();
+    }
+
+    function updatePlayer(dt) {
+      if (!player) return;
+
+      const moveX = (keyState['KeyD'] || keyState['ArrowRight'] ? 1 : 0) - (keyState['KeyA'] || keyState['ArrowLeft'] ? 1 : 0);
+      const moveY = (keyState['KeyW'] || keyState['ArrowUp'] ? 1 : 0) - (keyState['KeyS'] || keyState['ArrowDown'] ? 1 : 0);
+      const speed = player.moveSpeed * (player.dodgeBoost > 0 ? 1.65 : 1);
+
+      player.mesh.position.x += moveX * speed * dt;
+      player.mesh.position.y += moveY * speed * dt;
+      player.mesh.position.x = clamp(player.mesh.position.x, -7.2, 7.2);
+      player.mesh.position.y = clamp(player.mesh.position.y, -4.3, 4.3);
+
+      player.cooldown = Math.max(0, player.cooldown - dt);
+      player.abilityCooldown = Math.max(0, player.abilityCooldown - dt);
+      if (player.dodgeBoost > 0) player.dodgeBoost -= dt;
+      if (player.autoFireBoost > 0) player.autoFireBoost -= dt;
+
+      if (keyState['Space']) fireBullet();
+
+      if (keyState['ShiftLeft'] || keyState['ShiftRight']) {
+        if (player.abilityCooldown <= 0) {
+          if (player.characterKey === 'vanguard') {
+            player.shield = Math.min(player.shieldMax, player.shield + 28);
+          } else if (player.characterKey === 'wisp') {
+            player.dodgeBoost = 0.8;
+          } else if (player.characterKey === 'ranger') {
+            player.autoFireBoost = 2.2;
+          }
+          player.abilityCooldown = 2.8;
+        }
+      }
+    }
+
+    function updateBullets(dt) {
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.mesh.position.addScaledVector(b.velocity, dt);
+        b.life -= dt;
+
+        if (b.life <= 0 || b.mesh.position.z < -90 || b.mesh.position.z > 14) {
+          scene.remove(b.mesh);
+          bullets.splice(i, 1);
+        }
+      }
+    }
+
+    function updateEnemies(dt) {
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+
+        e.mesh.position.z += e.speed * dt;
+        e.mesh.position.x += Math.sin((state.elapsed + e.phase) * 1.4) * 0.75 * dt;
+        e.mesh.rotation.y += dt * 2.4;
+
+        if (e.type === 'boss') {
+          e.mesh.position.x += Math.sin(state.elapsed * 1.4 + e.phase) * 0.9 * dt;
+          e.mesh.position.y += Math.cos(state.elapsed * 1.8 + e.phase) * 0.7 * dt;
+        }
+
+        if (e.mesh.position.z > 10) {
+          scene.remove(e.mesh);
+          enemies.splice(i, 1);
+          continue;
+        }
+
+        if (e.mesh.position.distanceTo(player.mesh.position) < e.radius + 0.75) {
+          damagePlayer(e.attack);
+          scene.remove(e.mesh);
+          enemies.splice(i, 1);
+          state.combo = Math.max(1, state.combo - 1);
+          continue;
+        }
+      }
+    }
+
+    function updateHazards(dt) {
+      for (let i = hazards.length - 1; i >= 0; i--) {
+        const h = hazards[i];
+        h.mesh.position.z += h.speed * dt;
+        h.mesh.rotation.x += h.spin * dt;
+        h.mesh.rotation.y += h.spin * 0.8 * dt;
+
+        if (h.mesh.position.distanceTo(player.mesh.position) < h.radius + 0.8) {
+          damagePlayer(24);
+          scene.remove(h.mesh);
+          hazards.splice(i, 1);
+          continue;
+        }
+
+        if (h.mesh.position.z > 10) {
+          scene.remove(h.mesh);
+          hazards.splice(i, 1);
+        }
+      }
+    }
+
+    function updatePickups(dt) {
+      for (let i = pickups.length - 1; i >= 0; i--) {
+        const p = pickups[i];
+        p.mesh.position.z += 5 * dt;
+        p.mesh.rotation.y += 2.4 * dt;
+
+        if (p.mesh.position.distanceTo(player.mesh.position) < p.radius + 0.8) {
+          state.score += p.value;
+          spawnParticles(p.mesh.position, 0x80ffe5, 18);
+          scene.remove(p.mesh);
+          pickups.splice(i, 1);
+          continue;
+        }
+
+        if (p.mesh.position.z > 10) {
+          scene.remove(p.mesh);
+          pickups.splice(i, 1);
+        }
+      }
+    }
+
+    function collisionChecks() {
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const bullet = bullets[i];
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          const enemy = enemies[j];
+          if (bullet.mesh.position.distanceTo(enemy.mesh.position) < enemy.radius + 0.25) {
+            enemy.health -= bullet.damage;
+            scene.remove(bullet.mesh);
+            bullets.splice(i, 1);
+
+            if (enemy.health <= 0) {
+              state.score += enemy.scoreValue + state.combo * 18;
+              state.combo = Math.min(state.combo + 1, 12);
+              spawnParticles(enemy.mesh.position, enemy.mesh.material.color.getHex(), 16);
+              scene.remove(enemy.mesh);
+              enemies.splice(j, 1);
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    function updateParticles(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.mesh.position.addScaledVector(p.velocity, dt);
+        p.life -= dt;
+        if (p.life <= 0) {
+          scene.remove(p.mesh);
+          particles.splice(i, 1);
+        }
+      }
+    }
+
+    function spawnWaveContent() {
+      state.spawnTimer -= 1 / 60;
+      state.hazardTimer -= 1 / 60;
+      state.pickupTimer -= 1 / 60;
+
+      if (state.spawnTimer <= 0) {
+        const types = ['striker', 'swarm', 'turret', 'bomber'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        spawnEnemy(type);
+        state.spawnTimer = Math.max(0.5, 1.2 - state.wave * 0.07);
+      }
+
+      if (state.hazardTimer <= 0) {
+        spawnHazard();
+        state.hazardTimer = Math.max(1.6, 2.5 - state.wave * 0.05);
+      }
+
+      if (state.pickupTimer <= 0) {
+        spawnPickup();
+        state.pickupTimer = 7.5;
+      }
+    }
+
+    function updateWaveSystem() {
+      if (!state.running) return;
+
+      state.wave = 1 + Math.floor(state.elapsed / 18);
+      if (!state.bossSpawned && state.score > 900) {
+        state.bossSpawned = true;
+        spawnEnemy('boss');
+      }
+
+      if (state.elapsed >= state.nextUpgradeIn) {
+        triggerUpgrade();
+      }
+    }
+
+    function startGame(characterKey) {
+      if (player) {
+        scene.remove(player.mesh);
+      }
+
+      state.running = true;
+      state.paused = false;
+      state.score = 0;
+      state.wave = 1;
+      state.elapsed = 0;
+      state.combo = 1;
+      state.nextUpgradeIn = 12;
+      state.bossSpawned = false;
+      state.spawnTimer = 0.7;
+      state.hazardTimer = 1.2;
+      state.pickupTimer = 6;
+
+      player = createPlayer(characterKey);
+      player.shield = Math.min(player.shieldMax, player.shield + 6);
+
+      bullets.forEach((b) => scene.remove(b.mesh));
+      bullets = [];
+      enemies.forEach((e) => scene.remove(e.mesh));
+      enemies = [];
+      hazards.forEach((h) => scene.remove(h.mesh));
+      hazards = [];
+      pickups.forEach((p) => scene.remove(p.mesh));
+      pickups = [];
+      particles.forEach((p) => scene.remove(p.mesh));
+      particles = [];
+
+      ui.charSelect.classList.add('hidden');
+      ui.upgradeSelect.classList.add('hidden');
+      updateHud();
+    }
+
+    document.querySelectorAll('.char[data-character]').forEach((button) => {
+      button.addEventListener('click', () => setSelectedCharacter(button.dataset.character));
+    });
+
+    ui.startBtn.addEventListener('click', () => {
+      if (!state.playerSelected) return;
+      startGame(state.playerSelected);
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (ui.charSelect.classList.contains('hidden')) return;
+
+      if (event.code === 'Digit1') {
+        event.preventDefault();
+        setSelectedCharacter('vanguard');
+      }
+      if (event.code === 'Digit2') {
+        event.preventDefault();
+        setSelectedCharacter('wisp');
+      }
+      if (event.code === 'Digit3') {
+        event.preventDefault();
+        setSelectedCharacter('ranger');
+      }
+      if (event.code === 'Enter') {
+        event.preventDefault();
+        startGame(state.playerSelected);
+      }
+    });
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.033);
+
+      if (state.running && !state.paused) {
+        state.elapsed += dt;
+        state.score += dt * 18 + state.combo * 0.8;
+
+        updatePlayer(dt);
+        updateBullets(dt);
+        updateEnemies(dt);
+        updateHazards(dt);
+        updatePickups(dt);
+        collisionChecks();
+        spawnWaveContent();
+        updateWaveSystem();
+      }
+
+      stars.rotation.z += dt * 0.04;
+      stars.rotation.x = Math.sin(state.elapsed * 0.25) * 0.2;
+
+      if (player) {
+        camera.position.x = player.mesh.position.x * 0.8;
+        camera.position.y = player.mesh.position.y * 0.7 + 2.2;
+        camera.lookAt(player.mesh.position.x * 0.7, player.mesh.position.y * 0.7, -28);
+      }
+
+      updateParticles(dt);
+      updateHud();
+      renderer.render(scene, camera);
+    }
+
+    setSelectedCharacter('vanguard');
+    updateHud();
+    animate();
+  </script>
+</body>
+</html>
