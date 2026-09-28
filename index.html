@@ -271,21 +271,21 @@
       </p>
 
       <div class="char-grid">
-        <button class="char active" data-character="vanguard">
+        <button class="char active" type="button" data-character="vanguard">
           <h3>⚔ Vanguard</h3>
           <p>Armored fighter with a reinforced hull</p>
           <p>Strong shields, steady control</p>
           <p>Best for: Defensive play</p>
         </button>
 
-        <button class="char" data-character="wisp">
+        <button class="char" type="button" data-character="wisp">
           <h3>⚡ Wisp</h3>
           <p>Sleek interceptor built for speed</p>
           <p>Quick reflexes, evasive maneuvers</p>
           <p>Best for: Precision dodging</p>
         </button>
 
-        <button class="char" data-character="ranger">
+        <button class="char" type="button" data-character="ranger">
           <h3>🎯 Ranger</h3>
           <p>Balanced attack craft</p>
           <p>Versatile weapon systems</p>
@@ -295,7 +295,7 @@
 
       <div class="actions">
         <div class="small">WASD/Arrows: Move | Shift: Ability | Space: Fire</div>
-        <button id="startBtn">Launch</button>
+        <button id="startBtn" type="button">Launch</button>
       </div>
     </div>
   </div>
@@ -421,8 +421,65 @@
     populatePlanets();
 
     const keyState = {};
-    window.addEventListener('keydown', (e) => { keyState[e.code] = true; if (e.code === 'Space') e.preventDefault(); });
-    window.addEventListener('keyup', (e) => { keyState[e.code] = false; });
+    function handleMenuKeys(event) {
+      if (event.repeat) return;
+
+      const key = event.key;
+      const code = event.code;
+      const charSelectVisible = !ui.charSelect.classList.contains('hidden');
+      const upgradeVisible = !ui.upgradeSelect.classList.contains('hidden');
+
+      if (charSelectVisible && (key === '1' || code === 'Digit1' || key === 'Numpad1')) {
+        event.preventDefault();
+        setSelectedCharacter('vanguard');
+        return;
+      }
+      if (charSelectVisible && (key === '2' || code === 'Digit2' || key === 'Numpad2')) {
+        event.preventDefault();
+        setSelectedCharacter('wisp');
+        return;
+      }
+      if (charSelectVisible && (key === '3' || code === 'Digit3' || key === 'Numpad3')) {
+        event.preventDefault();
+        setSelectedCharacter('ranger');
+        return;
+      }
+      if (charSelectVisible && (key === 'Enter' || code === 'Enter')) {
+        event.preventDefault();
+        startGame(state.playerSelected);
+        return;
+      }
+
+      if (upgradeVisible && (key === '1' || code === 'Digit1' || key === 'Numpad1')) {
+        event.preventDefault();
+        applyUpgrade(0);
+        return;
+      }
+      if (upgradeVisible && (key === '2' || code === 'Digit2' || key === 'Numpad2')) {
+        event.preventDefault();
+        applyUpgrade(1);
+        return;
+      }
+      if (upgradeVisible && (key === '3' || code === 'Digit3' || key === 'Numpad3')) {
+        event.preventDefault();
+        applyUpgrade(2);
+        return;
+      }
+    }
+
+    window.addEventListener('keydown', handleMenuKeys, { passive: false });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      const menuKey = e.key === '1' || e.key === '2' || e.key === '3' || e.key === 'Enter' || e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Numpad1' || e.code === 'Numpad2' || e.code === 'Numpad3' || e.code === 'Enter';
+      if (menuKey) return;
+      keyState[e.code] = true;
+      if (e.code === 'Space') e.preventDefault();
+    }, { passive: false });
+
+    window.addEventListener('keyup', (e) => {
+      keyState[e.code] = false;
+    });
 
     const charDefs = {
       vanguard: { name: 'Vanguard', color: 0x7bdcff, moveSpeed: 6.5, fireRate: 0.25, damage: 14, health: 110, shield: 42, shieldMax: 42, ability: 'Shield Burst' },
@@ -517,7 +574,7 @@
         new THREE.SphereGeometry(0.42, 18, 18, 0, Math.PI * 2, 0, Math.PI * 0.85),
         new THREE.MeshStandardMaterial({
           color: 0xeaf6ff,
-          metalness: 0.75,
+          metalness: 0.7,
           roughness: 0.18,
           emissive: 0x4da6ff,
           emissiveIntensity: 0.35
@@ -529,7 +586,13 @@
       group.add(cockpit);
 
       const wingGeo = new THREE.BoxGeometry(1.6, 0.12, 2.1);
-      const wingMat = new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.8, roughness: 0.3, emissive: def.color, emissiveIntensity: 0.18 });
+      const wingMat = new THREE.MeshStandardMaterial({
+        color: def.color,
+        metalness: 0.8,
+        roughness: 0.3,
+        emissive: def.color,
+        emissiveIntensity: 0.18
+      });
       const leftWing = new THREE.Mesh(wingGeo, wingMat);
       const rightWing = leftWing.clone();
       leftWing.position.set(-1.15, 0, -0.2);
@@ -630,35 +693,134 @@
       const group = new THREE.Group();
 
       if (type === 'striker') {
-        const core = new THREE.Mesh(new THREE.ConeGeometry(0.44, 1.2, 8), new THREE.MeshStandardMaterial({ color, metalness: 0.45, roughness: 0.35, emissive: color, emissiveIntensity: 0.35 }));
-        core.rotation.x = Math.PI / 2;
-        group.add(core);
+        const hull = new THREE.Mesh(
+          new THREE.CapsuleGeometry(0.3, 1.2, 8, 18),
+          new THREE.MeshStandardMaterial({
+            color,
+            metalness: 0.72,
+            roughness: 0.3,
+            emissive: color,
+            emissiveIntensity: 0.25
+          })
+        );
+        hull.rotation.z = Math.PI / 2;
+        hull.castShadow = true;
+        group.add(hull);
+
+        const cockpit = new THREE.Mesh(
+          new THREE.SphereGeometry(0.22, 12, 12),
+          new THREE.MeshPhysicalMaterial({
+            color: 0xf1f8ff,
+            metalness: 0.2,
+            roughness: 0.08,
+            transmission: 0.7,
+            transparent: true,
+            opacity: 0.75
+          })
+        );
+        cockpit.position.set(0.2, 0, 0.35);
+        group.add(cockpit);
+
+        const engine = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.12, 0.15, 0.6, 12),
+          new THREE.MeshStandardMaterial({ color: 0x161f2f, metalness: 0.8, roughness: 0.28 })
+        );
+        engine.position.set(0, 0, -0.9);
+        engine.rotation.x = Math.PI / 2;
+        group.add(engine);
+
       } else if (type === 'bomber') {
-        const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), new THREE.MeshStandardMaterial({ color, metalness: 0.52, roughness: 0.28, emissive: color, emissiveIntensity: 0.35 }));
+        const core = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.7, 0),
+          new THREE.MeshStandardMaterial({
+            color,
+            metalness: 0.68,
+            roughness: 0.28,
+            emissive: color,
+            emissiveIntensity: 0.32
+          })
+        );
+        core.castShadow = true;
         group.add(core);
+
+        const turret = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.18, 0.18, 0.9, 12),
+          new THREE.MeshStandardMaterial({ color: 0x2c3448, metalness: 0.8, roughness: 0.22 })
+        );
+        turret.rotation.x = Math.PI / 2;
+        turret.position.z = 0.6;
+        group.add(turret);
+
       } else if (type === 'turret') {
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.65, 0.45, 20), new THREE.MeshStandardMaterial({ color: 0x5b4a7d, metalness: 0.55, roughness: 0.35 }));
+        const base = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.55, 0.7, 0.45, 18),
+          new THREE.MeshStandardMaterial({ color: 0x5f4a82, metalness: 0.7, roughness: 0.3 })
+        );
+        base.castShadow = true;
         group.add(base);
-        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.2, 12), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.4 }));
+
+        const barrel = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.1, 0.1, 1.3, 12),
+          new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.4, metalness: 0.8, roughness: 0.24 })
+        );
         barrel.rotation.x = Math.PI / 2;
-        barrel.position.z = 0.8;
+        barrel.position.z = 0.7;
         group.add(barrel);
+
       } else if (type === 'swarm') {
-        const core = new THREE.Mesh(new THREE.TetrahedronGeometry(0.38, 0), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.4 }));
-        group.add(core);
+        const body = new THREE.Mesh(
+          new THREE.TetrahedronGeometry(0.38, 0),
+          new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5, metalness: 0.5, roughness: 0.2 })
+        );
+        body.castShadow = true;
+        group.add(body);
+
       } else if (type === 'boss') {
-        const core = new THREE.Mesh(new THREE.SphereGeometry(1.5, 20, 20), new THREE.MeshStandardMaterial({ color, metalness: 0.7, roughness: 0.25, emissive: color, emissiveIntensity: 0.4 }));
+        const core = new THREE.Mesh(
+          new THREE.SphereGeometry(1.6, 24, 24),
+          new THREE.MeshStandardMaterial({ color, metalness: 0.8, roughness: 0.2, emissive: color, emissiveIntensity: 0.3 })
+        );
+        core.castShadow = true;
         group.add(core);
+
         for (let i = 0; i < 6; i++) {
-          const spike = new THREE.Mesh(new THREE.ConeGeometry(0.27, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0xff7a7a, emissive: 0xff3e3e, emissiveIntensity: 0.38 }));
+          const spike = new THREE.Mesh(
+            new THREE.ConeGeometry(0.3, 1.5, 8),
+            new THREE.MeshStandardMaterial({
+              color: 0xff7a7a,
+              emissive: 0xff3e3e,
+              emissiveIntensity: 0.4,
+              metalness: 0.7,
+              roughness: 0.2
+            })
+          );
           const a = (i / 6) * Math.PI * 2;
-          spike.position.set(Math.cos(a) * 1.75, Math.sin(a) * 1.75, 0.2);
+          spike.position.set(Math.cos(a) * 1.8, Math.sin(a) * 1.8, 0.2);
           spike.rotation.z = a;
+          spike.castShadow = true;
           group.add(spike);
         }
+
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(2.4, 0.12, 12, 40),
+          new THREE.MeshStandardMaterial({
+            color: 0xffd0d8,
+            emissive: 0xff6f8f,
+            emissiveIntensity: 0.25,
+            metalness: 0.7,
+            roughness: 0.15
+          })
+        );
+        ring.rotation.x = Math.PI / 2;
+        group.add(ring);
       }
 
-      group.position.set(type === 'boss' ? 0 : randomRange(-8, 8), type === 'boss' ? 0 : randomRange(-5, 5), type === 'boss' ? -35 : -75);
+      group.position.set(
+        type === 'boss' ? 0 : randomRange(-8, 8),
+        type === 'boss' ? 0 : randomRange(-5, 5),
+        type === 'boss' ? -30 : -75
+      );
+
       scene.add(group);
 
       const stats = {
@@ -750,11 +912,11 @@
     function bindUpgradeKeys() {
       if (upgradeKeyListener) window.removeEventListener('keydown', upgradeKeyListener);
       upgradeKeyListener = (event) => {
-        if (event.code === 'Digit1') { event.preventDefault(); applyUpgrade(0); }
-        else if (event.code === 'Digit2') { event.preventDefault(); applyUpgrade(1); }
-        else if (event.code === 'Digit3') { event.preventDefault(); applyUpgrade(2); }
+        if (event.code === 'Digit1' || event.key === '1' || event.code === 'Numpad1') { event.preventDefault(); applyUpgrade(0); }
+        else if (event.code === 'Digit2' || event.key === '2' || event.code === 'Numpad2') { event.preventDefault(); applyUpgrade(1); }
+        else if (event.code === 'Digit3' || event.key === '3' || event.code === 'Numpad3') { event.preventDefault(); applyUpgrade(2); }
       };
-      window.addEventListener('keydown', upgradeKeyListener);
+      window.addEventListener('keydown', upgradeKeyListener, { passive: false });
     }
 
     function triggerUpgrade() {
@@ -769,6 +931,7 @@
       ui.upgradeGrid.innerHTML = '';
       upgrades.forEach((u, idx) => {
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'char';
         btn.innerHTML = `<h3>${idx + 1}. ${u.label}</h3><p>${u.description}</p>`;
         btn.addEventListener('click', () => applyUpgrade(idx));
@@ -981,7 +1144,7 @@
 
       hazards.forEach((h) => {
         const hx = w / 2 + h.mesh.position.x * scale;
-        const hy = h.mesh.position.y * scale + h / 2;
+        const hy = h / 2 + h.mesh.position.y * scale;
         radarCtx.fillStyle = 'rgba(122, 138, 165, 0.6)';
         radarCtx.beginPath();
         radarCtx.arc(hx, hy, 1, 0, Math.PI * 2);
@@ -997,12 +1160,8 @@
       });
     });
 
-    window.addEventListener('keydown', (event) => {
-      if (ui.charSelect.classList.contains('hidden')) return;
-      if (event.code === 'Digit1') { event.preventDefault(); setSelectedCharacter('vanguard'); }
-      else if (event.code === 'Digit2') { event.preventDefault(); setSelectedCharacter('wisp'); }
-      else if (event.code === 'Digit3') { event.preventDefault(); setSelectedCharacter('ranger'); }
-      else if (event.code === 'Enter') { event.preventDefault(); startGame(state.playerSelected); }
+    document.querySelectorAll('.char[data-character]').forEach((button) => {
+      button.type = 'button';
     });
 
     ui.startBtn.addEventListener('click', () => startGame(state.playerSelected));
@@ -1055,9 +1214,9 @@
 
       starField.rotation.z += dt * 0.02;
       starField.rotation.x = Math.sin(state.elapsed * 0.2) * 0.15;
-      planets.forEach((element) => {
-        element.planet.rotation.y += dt * element.drift;
-        if (element.ring) element.ring.rotation.z += dt * 0.14;
+      planets.forEach((entry) => {
+        entry.planet.rotation.y += dt * entry.drift;
+        if (entry.ring) entry.ring.rotation.z += dt * 0.12;
       });
 
       if (player) {
